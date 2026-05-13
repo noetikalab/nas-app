@@ -16,8 +16,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 常用命令
 
 ```bash
-pnpm start           # 启动 Metro bundler
-pnpm android         # 编译并安装到已连接的 Android 真机
+pnpm dev             # 启动开发（adb reverse + Metro，推荐）
+pnpm start           # 仅启动 Metro bundler
+pnpm android         # 编译并安装到已连接的 Android 真机（原生代码变更后才需要）
 pnpm lint            # ESLint 检查
 pnpm test            # Jest 单元测试
 pnpm test -- --testPathPattern=<file>  # 运行单个测试文件

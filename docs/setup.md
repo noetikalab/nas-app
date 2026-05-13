@@ -142,15 +142,21 @@ pnpm add @react-native-async-storage/async-storage@^2.1.2
 **必须使用真机**，模拟器不支持 NFC 和 WiFi P2P。
 
 ```bash
-# 手机开启开发者模式 + USB 调试后
+# 手机开启开发者模式 + USB 调试 + USB 安装后
 adb devices          # 确认设备已识别
 
-# 启动 Metro bundler
-pnpm start
+# 日常开发（推荐）：自动执行 adb reverse + 启动 Metro
+pnpm dev
 
-# 另开终端，编译安装到手机
+# 首次运行或修改了原生代码（Kotlin/Java、android/ 目录、新增带原生代码的 npm 包）后
 pnpm android
 ```
+
+### adb reverse 说明
+
+手机通过 USB 连接时，`localhost` 在手机上指向手机自身，无法访问电脑上的 Metro。`adb reverse tcp:8081 tcp:8081` 在手机和电脑之间建立端口隧道，让手机的 `localhost:8081` 指向电脑的 8081 端口。
+
+`pnpm dev` 已内置此命令，每次重新插拔手机后重跑 `pnpm dev` 即可，无需重新编译 APK。
 
 ## 相关文档
 

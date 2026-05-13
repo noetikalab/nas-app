@@ -31,14 +31,16 @@
 ```bash
 pnpm install
 
-# 终端 1：启动 Metro
-pnpm start
-
-# 终端 2：编译安装到手机
+# 首次或原生代码变更后：编译安装 APK 到手机
 pnpm android
+
+# 日常开发：启动 Metro（含 adb reverse，解决手机连接问题）
+pnpm dev
 ```
 
 手机需开启**开发者模式 + USB 调试 + USB 安装**，用数据线连接后运行 `adb devices` 确认识别。
+
+> `pnpm dev` 会自动执行 `adb reverse tcp:8081 tcp:8081`，解决手机通过 USB 连接时无法访问电脑 Metro 的问题。每次重新插拔手机后重跑即可，无需重新编译。
 
 ## 常见问题
 
