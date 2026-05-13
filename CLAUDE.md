@@ -67,3 +67,22 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 - WiFi P2P 连接成功后 NAS IP 固定为 `192.168.49.1:8080`
 - Android 12+ 需要 `NEARBY_WIFI_DEVICES` 权限才能使用 WiFi P2P
 - MVP 阶段不做防重放和 HTTPS，正式版再加
+
+## 已知坑点
+
+- **async-storage 必须用 v2**：v3 依赖国内镜像没有的 Maven 包 `org.asyncstorage.shared_storage:storage-android`，构建直接失败
+- **Gradle 镜像**：`gradle-wrapper.properties` 用腾讯云镜像，`build.gradle` 加阿里云 Maven 镜像，详见 `docs/setup.md`
+- **tsconfig `baseUrl` 已移除**：新版 TS 不支持，路径别名用 `paths: {"@/*": ["./*"]}`，babel alias 对应 `"@": "./"`
+- **安装被拒（INSTALL_FAILED_USER_RESTRICTED）**：检查手机开发者选项中 **USB 安装** 是否开启
+
+## 入口文件
+
+```
+index.js     ← Android 启动入口，注册 App 组件，不需要动
+App.tsx      ← 根组件，接入 NavigationContainer
+```
+
+- `phone_id`：首次启动生成的 UUID，存 AsyncStorage，永不变，用于 NFC 绑定身份
+- WiFi P2P 连接成功后 NAS IP 固定为 `192.168.49.1:8080`
+- Android 12+ 需要 `NEARBY_WIFI_DEVICES` 权限才能使用 WiFi P2P
+- MVP 阶段不做防重放和 HTTPS，正式版再加

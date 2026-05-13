@@ -16,7 +16,7 @@
 unzip commandlinetools-linux-*.zip -d ~/Android/cmdline-tools
 mv ~/Android/cmdline-tools/cmdline-tools ~/Android/cmdline-tools/latest
 
-# 安装 SDK 组件
+# 安装 SDK 组件（实际构建时 Gradle 会自动安装 API 36 和 NDK，无需手动指定）
 sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 ```
 
@@ -80,9 +80,11 @@ import { LoginScreen } from '@/src/screens/LoginScreen'
 | @react-navigation/stack | ^7.9.1 | Stack 导航器 |
 | react-native-screens | ^4.25.0 | 原生屏幕优化（导航依赖） |
 | react-native-safe-area-context | ^5.5.2 | 安全区域处理 |
-| @react-native-async-storage/async-storage | ^3.0.2 | 本地持久化（phone_id、JWT） |
+| @react-native-async-storage/async-storage | ^2.1.2 | 本地持久化（phone_id、JWT）|
 | zustand | ^5.0.13 | 轻量全局状态管理 |
 | axios | ^1.16.0 | HTTP 请求 |
+
+> **注意**：async-storage 必须用 v2，v3 依赖 `org.asyncstorage.shared_storage:storage-android` 这个 Maven 包，国内镜像没有，构建会失败。
 
 ### 待安装（开发推进时按需添加）
 
@@ -102,7 +104,40 @@ import { LoginScreen } from '@/src/screens/LoginScreen'
 | babel-plugin-module-resolver | ^5.0.3 | 路径别名（配合 tsconfig paths） |
 | jest | ^29.6.3 | 单元测试 |
 
-## 开发调试
+## 已知坑点
+
+### Gradle 下载超时
+国内访问 `services.gradle.org` 被墙，需改用腾讯云镜像。
+
+`android/gradle/wrapper/gradle-wrapper.properties`：
+```
+distributionUrl=https\://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-bin.zip
+networkTimeout=60000
+```
+
+`android/build.gradle` 的 `repositories` 块加阿里云 Maven 镜像：
+```groovy
+maven { url 'https://maven.aliyun.com/repository/google' }
+maven { url 'https://maven.aliyun.com/repository/central' }
+```
+
+### async-storage v3 构建失败
+v3 依赖 `org.asyncstorage.shared_storage:storage-android`，国内镜像没有此包。固定使用 v2：
+```bash
+pnpm add @react-native-async-storage/async-storage@^2.1.2
+```
+
+### INSTALL_FAILED_USER_RESTRICTED
+手机拒绝安装，两种原因：
+1. 手机屏幕弹出安装确认框未点允许
+2. 开发者选项中 **USB 安装** 未开启（小米等品牌需要单独开启）
+
+### tsconfig baseUrl 已移除
+新版 TypeScript 不支持 `baseUrl`，路径别名改用：
+```json
+"paths": { "@/*": ["./*"] }
+```
+`babel.config.js` 的 alias 同步改为 `"@": "./"` 。
 
 **必须使用真机**，模拟器不支持 NFC 和 WiFi P2P。
 

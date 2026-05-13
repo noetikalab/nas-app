@@ -38,7 +38,15 @@ pnpm start
 pnpm android
 ```
 
-手机需开启**开发者模式 + USB 调试**，用数据线连接后运行 `adb devices` 确认识别。
+手机需开启**开发者模式 + USB 调试 + USB 安装**，用数据线连接后运行 `adb devices` 确认识别。
+
+## 常见问题
+
+**Gradle 下载超时**：已配置腾讯云镜像，如仍超时检查 `android/gradle/wrapper/gradle-wrapper.properties`。
+
+**INSTALL_FAILED_USER_RESTRICTED**：手机开发者选项中开启 **USB 安装**，部分品牌（小米等）默认关闭。
+
+详细搭建步骤和踩坑记录见 [docs/setup.md](docs/setup.md)。
 
 ## 项目结构
 
