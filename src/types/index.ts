@@ -11,3 +11,10 @@ export interface LoginRequest {
 export interface AuthResponse {
   token: string;
 }
+
+export interface FileItem {
+  name: string;
+  size: number;
+  modifiedAt: string;
+  isDir: boolean;
+}
