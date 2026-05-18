@@ -106,6 +106,14 @@ import { LoginScreen } from '@/src/screens/LoginScreen'
 
 ## 已知坑点
 
+### USB 网络共享 IP 动态变化
+
+USB 网络共享每次重新连接，手机分配给电脑的 IP 会变（如 `10.106.26.92` → `10.106.26.104`），导致 App 无法连接后端。
+
+根因：USB 网络共享使用 DHCP，IP 不固定。
+
+解决方案：长按登录页右下角的 ⚡ ping 按钮，进入 **DevSettings** 屏幕，在 App 内修改服务器地址并持久化到 AsyncStorage，无需改代码重编译。服务器地址默认值在 `src/storage/local.ts` 的 `DEFAULT_SERVER_URL` 中设置。
+
 ### Gradle 下载超时
 国内访问 `services.gradle.org` 被墙，需改用腾讯云镜像。
 

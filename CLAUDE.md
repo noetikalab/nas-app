@@ -34,7 +34,7 @@ pnpm test -- --testPathPattern=<file>  # 运行单个测试文件
 
 | 路径 | 职责 |
 |------|------|
-| `src/screens/` | 页面：LoginScreen、NfcScanScreen、PendingApprovalScreen、HomeScreen |
+| `src/screens/` | 页面：LoginScreen、HomeScreen、DevSettingsScreen（长按 ping 按钮进入）、NfcScanScreen、PendingApprovalScreen |
 | `src/navigation/` | React Navigation 路由配置 |
 | `src/api/` | HTTP 请求层（axios），对接 authd 后端 |
 | `src/native/` | JSB 原生模块 JS 封装（NfcModule、MdnsModule、WifiP2pModule） |
@@ -71,6 +71,7 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 
 ## 已知坑点
 
+- **USB IP 动态变化**：USB 网络共享每次重新连接 IP 会变（如 `10.106.26.x`），硬编码 `BASE_URL` 需频繁改代码。解决方案：长按登录页右下角 ping 按钮进入 DevSettings 屏幕，在 App 内修改并持久化服务器地址，无需改代码重编译
 - **async-storage 必须用 v2**：v3 依赖国内镜像没有的 Maven 包 `org.asyncstorage.shared_storage:storage-android`，构建直接失败
 - **Gradle 镜像**：`gradle-wrapper.properties` 用腾讯云镜像，`build.gradle` 加阿里云 Maven 镜像，详见 `docs/setup.md`
 - **tsconfig `baseUrl` 已移除**：新版 TS 不支持，路径别名用 `paths: {"@/*": ["./*"]}`，babel alias 对应 `"@": "./"`
