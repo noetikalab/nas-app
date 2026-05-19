@@ -104,7 +104,28 @@ import { LoginScreen } from '@/src/screens/LoginScreen'
 | babel-plugin-module-resolver | ^5.0.3 | 路径别名（配合 tsconfig paths） |
 | jest | ^29.6.3 | 单元测试 |
 
+### 环境工具补充
+
+安装 VS Code 编辑器，推荐使用官方 `.deb` 包而非 snap 版本：
+
+```bash
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo tee /etc/apt/sources.list.d/vscode.list
+sudo apt update && sudo apt install code
+```
+
+> **snap 版已废弃**：snap 238 版有 Mesa/OpenGL 驱动搜索路径 bug，导致窗口无法渲染（详见下方已知坑点）。
+
 ## 已知坑点
+
+### VS Code snap 无法打开窗口
+
+**现象**：`code` 命令执行后进程运行但没有窗口出现，verbose 日志报 `failed to open radeonsi: /usr/lib/dri/radeonsi_dri.so: 无法打开共享目标文件`。
+
+**根因**：snap 版 VS Code（v238）的 Electron 运行时搜索 Mesa DRI 驱动路径为 `/usr/lib/dri/`，但系统实际路径为 `/usr/lib/x86_64-linux-gnu/dri/`。这是 snap 沙箱与系统 Mesa 库的兼容性问题。
+
+**解决方案**：卸载 snap 版，改用官方 `.deb` 安装（命令见上方"环境工具补充"）。安装后执行 `hash -r` 清除 shell 对旧 `/snap/bin/code` 的路径缓存。
 
 ### USB 网络共享 IP 动态变化
 

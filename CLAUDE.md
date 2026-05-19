@@ -36,7 +36,7 @@ pnpm test -- --testPathPattern=<file>  # 运行单个测试文件
 |------|------|
 | `src/screens/` | 页面：LoginScreen、HomeScreen、DevSettingsScreen（长按 ping 按钮进入）、NfcScanScreen、PendingApprovalScreen |
 | `src/navigation/` | React Navigation 路由配置 |
-| `src/api/` | HTTP 请求层（axios），对接 authd 后端 |
+| `src/api/` | HTTP 请求层（fetch + AbortController 超时），对接 authd 后端。auth.ts（认证）、files.ts（文件操作） |
 | `src/native/` | JSB 原生模块 JS 封装（NfcModule、MdnsModule、WifiP2pModule） |
 | `src/network/` | 连接策略：mDNS 发现 → 缓存 IP → WiFi P2P 降级 |
 | `src/storage/` | AsyncStorage 封装：phone_id、JWT token 持久化 |
