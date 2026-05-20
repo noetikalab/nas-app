@@ -36,7 +36,7 @@ pnpm test -- --testPathPattern=<file>  # 运行单个测试文件
 |------|------|
 | `src/screens/` | 页面：LoginScreen、HomeScreen、DevSettingsScreen（长按 ping 按钮进入）、NfcScanScreen、PendingApprovalScreen |
 | `src/navigation/` | React Navigation 路由配置 |
-| `src/api/` | HTTP 请求层（fetch + AbortController 超时），对接 authd 后端。auth.ts（认证）、files.ts（文件操作） |
+| `src/api/` | HTTP 请求层（axios），对接 authd 后端。auth.ts（认证）、files.ts（文件操作）、device.ts（/device-info 校验） |
 | `src/native/` | JSB 原生模块 JS 封装（NfcModule、MdnsModule、WifiP2pModule） |
 | `src/network/` | 连接策略：mDNS 发现 → 缓存 IP → WiFi P2P 降级 |
 | `src/storage/` | AsyncStorage 封装：phone_id、JWT token 持久化 |
@@ -57,6 +57,8 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 
 | 接口 | 说明 |
 |------|------|
+| `GET /device-info` | 设备信息校验（公开，无需 JWT），mDNS 发现后确认设备身份 |
+| `GET /ping` | 连通性测试（公开） |
 | `POST /register` | 注册 |
 | `POST /login` | 密码登录，返回 JWT |
 | `POST /nfc-login` | NFC 登录，已绑定返回 JWT，首次返回 `PENDING_APPROVAL` |
@@ -76,6 +78,8 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 - **Gradle 镜像**：`gradle-wrapper.properties` 用腾讯云镜像，`build.gradle` 加阿里云 Maven 镜像，详见 `docs/setup.md`
 - **tsconfig `baseUrl` 已移除**：新版 TS 不支持，路径别名用 `paths: {"@/*": ["./*"]}`，babel alias 对应 `"@": "./"`
 - **安装被拒（INSTALL_FAILED_USER_RESTRICTED）**：检查手机开发者选项中 **USB 安装** 是否开启
+- **mDNS 必须声明 3 个权限**：`CHANGE_WIFI_MULTICAST_STATE`（加入多播组）、`ACCESS_WIFI_STATE`、`ACCESS_NETWORK_STATE`。缺少任何一个都会导致 `discover()` 返回空数组
+- **mDNS resolve 不回调（2026-05-20 待解决）**：`onServiceFound` 触发但 `registerServiceInfoCallback.onServiceUpdated` 不回调。NAS 端 `pickIP()` 需过滤 Docker bridge 子网（`172.17-31.x.x`），APP 端需继续排查 zeroconf 与 Android NsdManager 的兼容性。详见 `../app-claude.md` 第八章
 
 ## 入口文件
 

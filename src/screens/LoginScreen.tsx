@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Animated,
 } from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {authApi} from '../api/auth';
 import {storage} from '../storage/local';
@@ -35,8 +35,15 @@ export function LoginScreen({navigation}: Props) {
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-
+  const [serverUrl, setServerUrl] = useState('');
   const [pingStatus, setPingStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
+
+  // Refresh server URL every time screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      storage.getServerUrl().then(setServerUrl);
+    }, []),
+  );
 
   const handlePing = async () => {
     if (pingStatus === 'loading') return;
@@ -79,6 +86,53 @@ export function LoginScreen({navigation}: Props) {
       </View>
 
       <View style={styles.card}>
+        {/* Server connection bar */}
+        <View style={styles.serverBar}>
+          {/* Ping button — left */}
+          <TouchableOpacity
+            style={[
+              styles.pingDot,
+              pingStatus === 'ok' && styles.pingDotOk,
+              pingStatus === 'fail' && styles.pingDotFail,
+            ]}
+            onPress={handlePing}
+            disabled={pingStatus === 'loading'}
+            activeOpacity={0.7}>
+            {pingStatus === 'loading' ? (
+              <ActivityIndicator size="small" color={TEAL} />
+            ) : (
+              <Text style={styles.pingDotText}>
+                {pingStatus === 'ok' ? '✓' : pingStatus === 'fail' ? '✗' : '⚡'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Info — middle */}
+          <TouchableOpacity
+            style={styles.serverContent}
+            onPress={() => navigation.navigate('Discovery')}
+            onLongPress={() => navigation.navigate('DevSettings')}
+            activeOpacity={0.7}>
+            <View style={styles.serverTextArea}>
+              <Text style={styles.serverLabel}>
+                {serverUrl ? serverUrl : '搜索局域网设备'}
+              </Text>
+              <Text style={styles.serverSub}>
+                {!serverUrl
+                  ? '连接到 NAS 后方可登录'
+                  : pingStatus === 'idle'
+                    ? '点击左侧按钮测试连接'
+                    : pingStatus === 'ok'
+                      ? '连接正常'
+                      : pingStatus === 'fail'
+                        ? '无法连接 · 点击重试'
+                        : '测试中...'}
+              </Text>
+            </View>
+            <Text style={styles.serverArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Logo 区 */}
         <View style={styles.logoArea}>
           <View style={styles.logoIcon}>
@@ -163,24 +217,6 @@ export function LoginScreen({navigation}: Props) {
         </Text>
       </View>
 
-      {/* Ping button — bottom right */}
-      <TouchableOpacity
-        style={[
-          styles.pingBtn,
-          pingStatus === 'ok' && styles.pingOk,
-          pingStatus === 'fail' && styles.pingFail,
-        ]}
-        onPress={handlePing}
-        onLongPress={() => navigation.navigate('DevSettings')}
-        activeOpacity={0.8}>
-        {pingStatus === 'loading' ? (
-          <ActivityIndicator size="small" color="#64748B" />
-        ) : (
-          <Text style={styles.pingText}>
-            {pingStatus === 'ok' ? '✓' : pingStatus === 'fail' ? '✗' : '⚡'}
-          </Text>
-        )}
-      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -331,20 +367,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
   },
-  pingBtn: {
-    position: 'absolute',
-    bottom: 32,
-    right: 24,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  serverBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginBottom: 28,
+    gap: 0,
+    marginBottom: 28,
+  },
+  serverContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  serverTextArea: {flex: 1},
+  serverLabel: {fontSize: 13, fontWeight: '600', color: TEXT},
+  serverSub: {fontSize: 11, color: MUTED, marginTop: 2},
+  serverArrow: {fontSize: 20, color: MUTED},
+  pingDot: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BORDER,
   },
-  pingOk: {backgroundColor: '#DCFCE7', borderColor: '#16A34A'},
-  pingFail: {backgroundColor: '#FEE2E2', borderColor: '#DC2626'},
-  pingText: {fontSize: 16},
+  pingDotOk: {backgroundColor: '#DCFCE7', borderColor: '#22C55E'},
+  pingDotFail: {backgroundColor: '#FEE2E2', borderColor: '#EF4444'},
+  pingDotText: {fontSize: 15},
 });
