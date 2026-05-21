@@ -79,7 +79,7 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 - **tsconfig `baseUrl` 已移除**：新版 TS 不支持，路径别名用 `paths: {"@/*": ["./*"]}`，babel alias 对应 `"@": "./"`
 - **安装被拒（INSTALL_FAILED_USER_RESTRICTED）**：检查手机开发者选项中 **USB 安装** 是否开启
 - **mDNS 必须声明 3 个权限**：`CHANGE_WIFI_MULTICAST_STATE`（加入多播组）、`ACCESS_WIFI_STATE`、`ACCESS_NETWORK_STATE`。缺少任何一个都会导致 `discover()` 返回空数组
-- **mDNS resolve 不回调（2026-05-20 待解决）**：`onServiceFound` 触发但 `registerServiceInfoCallback.onServiceUpdated` 不回调。NAS 端 `pickIP()` 需过滤 Docker bridge 子网（`172.17-31.x.x`），APP 端需继续排查 zeroconf 与 Android NsdManager 的兼容性。详见 `../app-claude.md` 第八章
+- **mDNS serviceType 末尾带 `.`**：Android NsdManager 返回的 `serviceType` 是 DNS FQDN 格式（末尾带 `.`，如 `_nas._tcp.`），比较时必须 `removeSuffix(".")` 否则匹配失败，`resolveService` 永远不会被调用，5s 超时后返回 0 设备。已修复于 `MdnsModule.kt:81`
 
 ## 入口文件
 

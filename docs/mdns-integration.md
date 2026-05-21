@@ -118,29 +118,23 @@ WiFi P2P 直连 → WifiP2pModule.connect()
 
 目前先只做 mDNS 这层。P2P 回退等 NAS 端 WiFi 模块验证通过后再接。
 
-## 6. 实现状态（2026-05-20）
+## 6. 实现状态（2026-05-21）
 
 | 状态 | 任务 | 文件 |
 |------|------|------|
-| ✅ 已实现 | mDNS JSB 原生模块（NsdManager + registerServiceInfoCallback） | `MdnsModule.kt` + `MdnsPackage.kt` |
+| ✅ 已实现 | mDNS JSB 原生模块（NsdManager + resolveService） | `MdnsModule.kt` + `MdnsPackage.kt` |
 | ✅ 已实现 | TS 封装 + device-info 校验 | `src/native/MdnsModule.ts` + `src/api/device.ts` |
 | ✅ 已实现 | Discovery 页面（mDNS 扫描 + /device-info 校验 + 空状态/错误态） | `src/screens/DiscoveryScreen.tsx` |
 | ✅ 已实现 | 网络连接策略入口 | `src/network/connector.ts` |
 | ✅ 已实现 | MainApplication 注册 | `MainApplication.kt` |
-| ⚠️ 阻塞中 | mDNS resolve 回调不触发 | 见下方 §7 |
+| ✅ 已修复 | mDNS resolve 回调不触发 | 见下方 §7 |
 | 📋 待开发 | APP 对接文件操作真实接口（替换 mock） | `src/api/files.ts` |
 
-## 7. 当前阻塞：resolve 回调不触发
+## 7. 已解决：serviceType 末尾 `.` 导致 resolve 不触发
 
-**现象**：`onServiceFound` 正常触发，`registerServiceInfoCallback.onServiceUpdated` 永不回调，5s 超时后返回空结果。
+**根因**：Android `NsdManager` 返回的 `serviceType` 是 DNS FQDN 格式，末尾带 `.`（如 `_nas._tcp.`）。代码中 `SERVICE_TYPE = "_nas._tcp"`（无 `.`），`if (service.serviceType != SERVICE_TYPE) return` 匹配失败，`onServiceFound` 直接 return，`resolveService` 从未被调用，5s 超时后返回空结果。
 
-**已排除**：
-- NAS 端 mDNS 广播：`avahi-browse` 可正常看到完整记录
-- NAS IP 错误：同事已修复 `pickIP()` 过滤 Docker bridge 子网
-- Android 权限：`CHANGE_WIFI_MULTICAST_STATE` 等 3 个权限已声明
-- API 版本：`resolveService`（废弃 API）和 `registerServiceInfoCallback`（API 34+ 新 API）均不回调
-- 线程：binder 线程和主线程调用均不回调
-
-**疑因**：zeroconf `RegisterProxy` 的 A 记录未与 SRV/TXT 打包在同一 mDNS response 中，Android NsdManager 不额外发 A 查询。
-
-**下一步**：`tcpdump` 抓包对比 zeroconf 和标准 avahi 的 mDNS 响应结构差异。
+**修复**（`MdnsModule.kt:81`）：
+```kotlin
+if (service.serviceType.removeSuffix(".") != SERVICE_TYPE) return
+```

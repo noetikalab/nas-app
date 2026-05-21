@@ -76,21 +76,26 @@ class MdnsModule(reactContext: ReactApplicationContext) :
 
             override fun onServiceFound(service: NsdServiceInfo) {
                 Log.i(TAG, "onServiceFound: type=${service.serviceType} name=${service.serviceName}")
-                if (service.serviceType != SERVICE_TYPE) return
+                Log.i(TAG, "  host=${service.host} port=${service.port} network=${service.network}")
+                Log.i(TAG, "  hostAddresses=${service.hostAddresses} attributes=${service.attributes}")
+                if (service.serviceType.removeSuffix(".") != SERVICE_TYPE) {
+                    Log.d(TAG, "  skipping serviceType=${service.serviceType}")
+                    return
+                }
 
                 if (Build.VERSION.SDK_INT >= 34) {
-                    val executor = Executor { it.run() }
-                    nsd.registerServiceInfoCallback(service, executor,
-                        object : NsdManager.ServiceInfoCallback {
-                            override fun onServiceUpdated(serviceInfo: NsdServiceInfo) {
-                                addResult(serviceInfo)
-                            }
-                            override fun onServiceLost() {}
-                            override fun onServiceInfoCallbackUnregistered() {}
-                            override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
-                                Log.e(TAG, "registerServiceInfoCallback failed: error=$errorCode")
-                            }
-                        })
+                    val mainExecutor = reactApplicationContext.mainExecutor
+                    Log.i(TAG, "  calling resolveService with mainExecutor")
+                    nsd.resolveService(service, mainExecutor, object : NsdManager.ResolveListener {
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                            Log.e(TAG, "onResolveFailed: name=${serviceInfo.serviceName} error=$errorCode")
+                        }
+
+                        override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                            Log.i(TAG, "onServiceResolved: host=${serviceInfo.host} port=${serviceInfo.port}")
+                            addResult(serviceInfo)
+                        }
+                    })
                 } else {
                     @Suppress("DEPRECATION")
                     nsd.resolveService(service, object : NsdManager.ResolveListener {
@@ -99,6 +104,7 @@ class MdnsModule(reactContext: ReactApplicationContext) :
                         }
 
                         override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                            Log.i(TAG, "onServiceResolved: host=${serviceInfo.host} port=${serviceInfo.port}")
                             addResult(serviceInfo)
                         }
                     })
