@@ -13,16 +13,12 @@ import {storage} from '../storage/local';
 import {filesApi} from '../api/files';
 import type {FileItem} from '../types';
 import type {RootStackParamList} from '../navigation';
+import {c} from '../theme/tokens';
+import {shared} from '../theme/shared';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 };
-
-const TEAL = '#0D9488';
-const TEXT = '#0F172A';
-const MUTED = '#94A3B8';
-const BORDER = '#E2E8F0';
-const BG = '#F8FAFC';
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return '--';
@@ -74,12 +70,14 @@ export function HomeScreen({navigation}: Props) {
 
   const renderItem = ({item}: {item: FileItem}) => (
     <View style={styles.row}>
-      <Text style={styles.icon}>{item.isDir ? '📁' : '📄'}</Text>
+      <View style={styles.fileIcon}>
+        <Text style={styles.fileIconText}>{item.isDir ? '/' : '●'}</Text>
+      </View>
       <View style={styles.fileInfo}>
         <Text style={styles.fileName} numberOfLines={1}>
           {item.name}
         </Text>
-        <Text style={styles.fileMeta}>
+        <Text style={shared.subtitle}>
           {item.isDir ? '--' : formatSize(item.size)} · {formatDate(item.modifiedAt)}
         </Text>
       </View>
@@ -87,11 +85,11 @@ export function HomeScreen({navigation}: Props) {
   );
 
   return (
-    <View style={styles.root}>
+    <View style={shared.root}>
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>NAS 文件</Text>
+          <Text style={styles.headerTitle}>文件</Text>
           {username ? <Text style={styles.headerUser}>{username}</Text> : null}
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
@@ -101,14 +99,14 @@ export function HomeScreen({navigation}: Props) {
 
       {/* Content */}
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={TEAL} />
+        <View style={shared.centered}>
+          <ActivityIndicator size="large" color={c.foreground} />
         </View>
       ) : error ? (
-        <View style={styles.centered}>
+        <View style={shared.centered}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchFiles}>
-            <Text style={styles.retryText}>Retry</Text>
+          <TouchableOpacity style={shared.emptyBtn} onPress={fetchFiles}>
+            <Text style={shared.emptyBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -117,11 +115,11 @@ export function HomeScreen({navigation}: Props) {
           keyExtractor={item => item.name}
           renderItem={renderItem}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[TEAL]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[c.foreground]} />
           }
-          contentContainerStyle={files.length === 0 ? styles.centered : styles.list}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={<Text style={styles.emptyText}>暂无文件</Text>}
+          contentContainerStyle={files.length === 0 ? shared.centered : styles.list}
+          ItemSeparatorComponent={() => <View style={shared.separator} />}
+          ListEmptyComponent={<Text style={shared.subtitle}>暂无文件</Text>}
         />
       )}
     </View>
@@ -129,9 +127,8 @@ export function HomeScreen({navigation}: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: BG},
   header: {
-    backgroundColor: TEAL,
+    backgroundColor: c.primary,
     paddingTop: 52,
     paddingBottom: 16,
     paddingHorizontal: 20,
@@ -139,38 +136,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
-  headerTitle: {fontSize: 22, fontWeight: '700', color: '#fff'},
-  headerUser: {fontSize: 13, color: '#CCFBF1', marginTop: 2},
+  headerTitle: {fontSize: 22, fontWeight: '700', color: '#FFFFFF'},
+  headerUser: {fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 2},
   logoutBtn: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  logoutText: {color: '#fff', fontSize: 13, fontWeight: '500'},
-  centered: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+  logoutText: {color: '#FFFFFF', fontSize: 13, fontWeight: '500'},
   list: {paddingVertical: 8},
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: c.background,
   },
-  icon: {fontSize: 28, marginRight: 12},
-  fileInfo: {flex: 1},
-  fileName: {fontSize: 15, fontWeight: '500', color: TEXT},
-  fileMeta: {fontSize: 12, color: MUTED, marginTop: 2},
-  separator: {height: 1, backgroundColor: BORDER, marginLeft: 60},
-  emptyText: {fontSize: 15, color: MUTED},
-  errorText: {fontSize: 15, color: '#DC2626', marginBottom: 12},
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+  fileIcon: {
+    width: 36,
+    height: 36,
     borderRadius: 8,
-    backgroundColor: TEAL,
+    backgroundColor: c.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  retryText: {color: '#fff', fontSize: 14, fontWeight: '600'},
+  fileIconText: {fontSize: 15, color: c.foreground, fontWeight: '600'},
+  fileInfo: {flex: 1},
+  fileName: {fontSize: 15, fontWeight: '500', color: c.foreground},
+  errorText: {fontSize: 15, color: c.destructive, marginBottom: 12},
 });
-

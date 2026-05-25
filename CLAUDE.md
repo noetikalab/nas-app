@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目背景
 
-基于 PUF 硬件身份的可信 NAS 存储系统的 Android 客户端。核心功能：账号密码登录注册、NFC 碰一碰无感登录、WebDAV 文件上传下载、WiFi P2P 直连（无路由器场景）。
+面向家庭用户的通用 NAS 私有云存储系统 Android 客户端。核心功能：账号密码登录注册、mDNS 局域网发现、WebDAV 文件上传下载、WiFi P2P 直连（无路由器场景）。后续规划 NFC 碰一碰。品牌名：NAS。
 
 **必须用真机调试**，模拟器不支持 NFC 和 WiFi P2P。
 
@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [NAS 整体方案（飞书）](https://my.feishu.cn/docx/EhQodDF20oHLMixoRaWcrejinIf)
 - [手机 APP 连接 NAS 方案（飞书）](https://my.feishu.cn/docx/ECfhdOcRUoa4XHxqCiOckoS7nOb)
 - 后端代码：`../ldap-demo/`
+- 整体方案文档：`../app-claude.md`
+- UI 设计规范：`DESIGN.md`
 
 ## 常用命令
 
@@ -41,6 +43,7 @@ pnpm test -- --testPathPattern=<file>  # 运行单个测试文件
 | `src/network/` | 连接策略：mDNS 发现 → 缓存 IP → WiFi P2P 降级 |
 | `src/storage/` | AsyncStorage 封装：phone_id、JWT token 持久化 |
 | `src/store/` | Zustand 全局状态 |
+| `src/theme/` | Design Token + 复用 StyleSheet。`tokens.ts` 定义色值/间距/圆角，`shared.ts` 定义共用样式（input/btn/card 等）。所有页面引用 `c` 和 `shared`，不硬编码色值 |
 | `android/app/src/main/java/com/nasapp/modules/` | Kotlin JSB 原生模块实现 |
 
 **NFC 登录核心流程（`src/screens/NfcScanScreen.tsx`）：**
@@ -70,6 +73,8 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 - WiFi P2P 连接成功后 NAS IP 固定为 `192.168.49.1:8080`
 - Android 12+ 需要 `NEARBY_WIFI_DEVICES` 权限才能使用 WiFi P2P
 - MVP 阶段不做防重放和 HTTPS，正式版再加
+- **UI 色值禁止硬编码**：所有颜色从 `src/theme/tokens.ts` 的 `c` 对象引用，共用样式从 `src/theme/shared.ts` 的 `shared` 引用。这是 Precision 设计系统的零依赖 Token 方案，保持全局视觉一致性
+- **新增 screen 遵循 Precision 设计**：黑白灰全线、无彩色强调、无 emoji 装饰、无渐变圆形。详见 `DESIGN.md`
 
 ## 已知坑点
 
@@ -80,6 +85,7 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 - **安装被拒（INSTALL_FAILED_USER_RESTRICTED）**：检查手机开发者选项中 **USB 安装** 是否开启
 - **mDNS 必须声明 3 个权限**：`CHANGE_WIFI_MULTICAST_STATE`（加入多播组）、`ACCESS_WIFI_STATE`、`ACCESS_NETWORK_STATE`。缺少任何一个都会导致 `discover()` 返回空数组
 - **mDNS serviceType 末尾带 `.`**：Android NsdManager 返回的 `serviceType` 是 DNS FQDN 格式（末尾带 `.`，如 `_nas._tcp.`），比较时必须 `removeSuffix(".")` 否则匹配失败，`resolveService` 永远不会被调用，5s 超时后返回 0 设备。已修复于 `MdnsModule.kt:81`
+- **shared.centered 导致子元素收缩**：`shared.centered` 包含 `alignItems: 'center'`，子元素会被压缩到内容宽度而非填满父容器。输入框、按钮等需要全宽的元素必须在其直系父级加 `alignSelf: 'stretch'` 打破收缩链（不只是元素自身，而是整条链上的每个父级）
 
 ## 入口文件
 

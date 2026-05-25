@@ -10,6 +10,8 @@ import {
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {storage} from '../storage/local';
 import type {RootStackParamList} from '../navigation';
+import {c, spacing} from '../theme/tokens';
+import {shared} from '../theme/shared';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'DevSettings'>;
@@ -34,44 +36,32 @@ export function DevSettingsScreen({navigation}: Props) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>Dev Settings</Text>
-      <Text style={styles.label}>Server URL</Text>
+      <Text style={shared.title}>Dev Settings</Text>
+      <Text style={[shared.label, styles.labelGap]}>Server URL</Text>
       <TextInput
-        style={styles.input}
+        style={[shared.input, styles.inputGap]}
         value={url}
         onChangeText={setUrl}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
         placeholder="http://192.168.x.x:8080"
+        placeholderTextColor={c.mutedForeground}
       />
-      <TouchableOpacity style={styles.btn} onPress={handleSave}>
-        <Text style={styles.btnText}>Save & Back</Text>
+      <TouchableOpacity style={shared.btn} onPress={handleSave}>
+        <Text style={shared.btnText}>Save & Back</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, padding: 28, paddingTop: 80, backgroundColor: '#F8FAFC'},
-  title: {fontSize: 20, fontWeight: '700', color: '#0F172A', marginBottom: 32},
-  label: {fontSize: 13, fontWeight: '500', color: '#0F172A', marginBottom: 6},
-  input: {
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#0F172A',
-    backgroundColor: '#FAFAFA',
-    marginBottom: 20,
+  root: {
+    flex: 1,
+    padding: spacing.xl,
+    paddingTop: 80,
+    backgroundColor: c.background,
   },
-  btn: {
-    backgroundColor: '#0D9488',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnText: {color: '#fff', fontSize: 16, fontWeight: '600'},
+  labelGap: {marginTop: spacing.xl},
+  inputGap: {marginBottom: 20},
 });

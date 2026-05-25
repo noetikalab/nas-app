@@ -15,19 +15,12 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {authApi} from '../api/auth';
 import {storage} from '../storage/local';
 import type {RootStackParamList} from '../navigation';
+import {c} from '../theme/tokens';
+import {shared} from '../theme/shared';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
 };
-
-const TEAL = '#0D9488';
-const TEAL_DARK = '#0F766E';
-const BG = '#F8FAFC';
-const CARD = '#FFFFFF';
-const TEXT = '#0F172A';
-const MUTED = '#94A3B8';
-const BORDER = '#E2E8F0';
-const BORDER_FOCUS = '#0D9488';
 
 export function LoginScreen({navigation}: Props) {
   const [username, setUsername] = useState('');
@@ -38,7 +31,6 @@ export function LoginScreen({navigation}: Props) {
   const [serverUrl, setServerUrl] = useState('');
   const [pingStatus, setPingStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
 
-  // Refresh server URL every time screen is focused
   useFocusEffect(
     useCallback(() => {
       storage.getServerUrl().then(setServerUrl);
@@ -77,29 +69,22 @@ export function LoginScreen({navigation}: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={shared.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.bg}>
-        {/* 装饰圆 */}
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
-      </View>
-
-      <View style={styles.card}>
+      <View style={[shared.centered, styles.card]}>
         {/* Server connection bar */}
         <View style={styles.serverBar}>
-          {/* Ping button — left */}
           <TouchableOpacity
             style={[
               styles.pingDot,
-              pingStatus === 'ok' && styles.pingDotOk,
-              pingStatus === 'fail' && styles.pingDotFail,
+              pingStatus === 'ok' && shared.statusOk,
+              pingStatus === 'fail' && shared.statusFail,
             ]}
             onPress={handlePing}
             disabled={pingStatus === 'loading'}
             activeOpacity={0.7}>
             {pingStatus === 'loading' ? (
-              <ActivityIndicator size="small" color={TEAL} />
+              <ActivityIndicator size="small" color={c.foreground} />
             ) : (
               <Text style={styles.pingDotText}>
                 {pingStatus === 'ok' ? '✓' : pingStatus === 'fail' ? '✗' : '⚡'}
@@ -107,7 +92,6 @@ export function LoginScreen({navigation}: Props) {
             )}
           </TouchableOpacity>
 
-          {/* Info — middle */}
           <TouchableOpacity
             style={styles.serverContent}
             onPress={() => navigation.navigate('Discovery')}
@@ -117,7 +101,7 @@ export function LoginScreen({navigation}: Props) {
               <Text style={styles.serverLabel}>
                 {serverUrl ? serverUrl : '搜索局域网设备'}
               </Text>
-              <Text style={styles.serverSub}>
+              <Text style={shared.subtitle}>
                 {!serverUrl
                   ? '连接到 NAS 后方可登录'
                   : pingStatus === 'idle'
@@ -133,16 +117,16 @@ export function LoginScreen({navigation}: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Logo 区 */}
+        {/* Logo */}
         <View style={styles.logoArea}>
           <View style={styles.logoIcon}>
             <Text style={styles.logoIconText}>N</Text>
           </View>
-          <Text style={styles.logoTitle}>NAS 存证</Text>
-          <Text style={styles.logoSub}>可信存储 · 司法级安全</Text>
+          <Text style={shared.title}>NAS</Text>
+          <Text style={[shared.subtitle, styles.logoSub]}>私有云存储</Text>
         </View>
 
-        {/* Tab 切换 */}
+        {/* Tabs */}
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tab, !isRegister && styles.tabActive]}
@@ -160,17 +144,14 @@ export function LoginScreen({navigation}: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* 输入框 */}
+        {/* Fields */}
         <View style={styles.form}>
-          <View style={styles.fieldWrap}>
-            <Text style={styles.label}>用户名</Text>
+          <View>
+            <Text style={shared.label}>用户名</Text>
             <TextInput
-              style={[
-                styles.input,
-                focusedField === 'username' && styles.inputFocus,
-              ]}
+              style={[shared.input, focusedField === 'username' && styles.inputFocus]}
               placeholder="请输入用户名"
-              placeholderTextColor={MUTED}
+              placeholderTextColor={c.mutedForeground}
               autoCapitalize="none"
               value={username}
               onChangeText={setUsername}
@@ -179,15 +160,12 @@ export function LoginScreen({navigation}: Props) {
             />
           </View>
 
-          <View style={styles.fieldWrap}>
-            <Text style={styles.label}>密码</Text>
+          <View>
+            <Text style={shared.label}>密码</Text>
             <TextInput
-              style={[
-                styles.input,
-                focusedField === 'password' && styles.inputFocus,
-              ]}
+              style={[shared.input, focusedField === 'password' && styles.inputFocus]}
               placeholder="请输入密码"
-              placeholderTextColor={MUTED}
+              placeholderTextColor={c.mutedForeground}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -197,65 +175,31 @@ export function LoginScreen({navigation}: Props) {
           </View>
         </View>
 
-        {/* 提交按钮 */}
+        {/* Submit */}
         <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
+          style={[shared.btn, loading && shared.btnDisabled]}
           onPress={handleSubmit}
           disabled={loading}
           activeOpacity={0.85}>
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.btnText}>
+            <Text style={shared.btnText}>
               {isRegister ? '创建账号' : '登录'}
             </Text>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.hint}>
+        <Text style={shared.hint}>
           {isRegister ? '注册即表示同意服务条款' : '忘记密码请联系管理员'}
         </Text>
       </View>
-
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: BG,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bg: {
-    position: 'absolute' as const, top: 0, left: 0, right: 0, bottom: 0,
-    overflow: 'hidden',
-  },
-  circle1: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: '#CCFBF1',
-    top: -80,
-    right: -80,
-    opacity: 0.6,
-  },
-  circle2: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#E0F2FE',
-    bottom: 60,
-    left: -60,
-    opacity: 0.5,
-  },
   card: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: CARD,
     paddingHorizontal: 28,
     paddingTop: 60,
     paddingBottom: 40,
@@ -268,116 +212,44 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: TEAL,
+    backgroundColor: c.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   logoIconText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -1,
   },
-  logoTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: TEXT,
-    letterSpacing: -0.5,
-  },
-  logoSub: {
-    fontSize: 12,
-    color: MUTED,
-    marginTop: 4,
-    letterSpacing: 0.5,
-  },
+  logoSub: {marginTop: 4, letterSpacing: 0.5},
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: c.muted,
     borderRadius: 10,
     padding: 3,
     marginBottom: 24,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
+  tab: {flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center'},
   tabActive: {
-    backgroundColor: CARD,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: c.background,
+    borderWidth: 1,
+    borderColor: c.border,
   },
-  tabText: {
-    fontSize: 14,
-    color: MUTED,
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: TEXT,
-    fontWeight: '600',
-  },
-  form: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  fieldWrap: {},
-  label: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: TEXT,
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: BORDER,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: TEXT,
-    backgroundColor: '#FAFAFA',
-  },
-  inputFocus: {
-    borderColor: BORDER_FOCUS,
-    backgroundColor: '#F0FDFA',
-  },
-  btn: {
-    backgroundColor: TEAL,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  btnDisabled: {
-    opacity: 0.7,
-  },
-  btnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  hint: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: MUTED,
-  },
+  tabText: {fontSize: 14, color: c.mutedForeground, fontWeight: '500'},
+  tabTextActive: {color: c.foreground, fontWeight: '600'},
+  form: {alignSelf: 'stretch', gap: 16, marginBottom: 20},
+  inputFocus: {borderColor: c.primary, backgroundColor: c.background},
   serverBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: c.muted,
     borderWidth: 1.5,
-    borderColor: BORDER,
+    borderColor: c.border,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 10,
-    marginBottom: 28,
-    gap: 0,
     marginBottom: 28,
   },
   serverContent: {
@@ -387,20 +259,17 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   serverTextArea: {flex: 1},
-  serverLabel: {fontSize: 13, fontWeight: '600', color: TEXT},
-  serverSub: {fontSize: 11, color: MUTED, marginTop: 2},
-  serverArrow: {fontSize: 20, color: MUTED},
+  serverLabel: {fontSize: 13, fontWeight: '600', color: c.foreground},
+  serverArrow: {fontSize: 20, color: c.mutedForeground},
   pingDot: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: c.muted,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: BORDER,
+    borderColor: c.border,
   },
-  pingDotOk: {backgroundColor: '#DCFCE7', borderColor: '#22C55E'},
-  pingDotFail: {backgroundColor: '#FEE2E2', borderColor: '#EF4444'},
   pingDotText: {fontSize: 15},
 });
