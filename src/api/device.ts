@@ -7,6 +7,6 @@ export interface DeviceInfo {
 }
 
 export async function getDeviceInfo(baseUrl: string): Promise<DeviceInfo> {
-  const res = await axios.get<DeviceInfo>(`${baseUrl}/device-info`, {timeout: 5000});
+  const res = await axios.get<DeviceInfo>(`${baseUrl}/api/device-info`, {timeout: 5000});
   return res.data;
 }

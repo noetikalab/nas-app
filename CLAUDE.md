@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 后端代码：`../ldap-demo/`
 - 整体方案文档：`../app-claude.md`
 - UI 设计规范：`DESIGN.md`
+- 文件管理开发方案：`docs/file-management-plan.md`
 
 ## 常用命令
 
@@ -56,16 +57,21 @@ const [baseUrl, phoneId] = await Promise.all([
 const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 ```
 
-## 后端接口（authd，默认 :8080）
+## 后端接口（authd，默认 :8080，所有接口统一 `/api/` 前缀）
 
 | 接口 | 说明 |
 |------|------|
-| `GET /device-info` | 设备信息校验（公开，无需 JWT），mDNS 发现后确认设备身份 |
-| `GET /ping` | 连通性测试（公开） |
-| `POST /register` | 注册 |
-| `POST /login` | 密码登录，返回 JWT |
-| `POST /nfc-login` | NFC 登录，已绑定返回 JWT，首次返回 `PENDING_APPROVAL` |
-| `GET /nfc-login/status?approval_id=` | 轮询首次绑定结果 |
+| `GET /api/ping` | 连通性测试（公开） |
+| `GET /api/device-info` | 设备信息校验（公开，无需 JWT），mDNS 发现后确认设备身份 |
+| `POST /api/register` | 注册 |
+| `POST /api/login` | 密码登录，返回 JWT + role |
+| `GET /api/validate-token` | 验证 JWT |
+| `GET /api/files?path=` | 列出目录（JWT） |
+| `GET /api/files/download?path=` | 下载文件（二进制流，JWT） |
+| `POST /api/files/upload` | 上传文件（multipart：path + file，JWT） |
+| `POST /api/files/mkdir` | 新建目录（JWT） |
+| `POST /api/files/move` | 移动/重命名（JWT） |
+| `DELETE /api/files?path=` | 删除文件（JWT） |
 
 ## 关键约束
 
@@ -75,6 +81,7 @@ const result = await api.nfcLogin(baseUrl, { nfc_token, device_id, phone_id });
 - MVP 阶段不做防重放和 HTTPS，正式版再加
 - **UI 色值禁止硬编码**：所有颜色从 `src/theme/tokens.ts` 的 `c` 对象引用，共用样式从 `src/theme/shared.ts` 的 `shared` 引用。这是 Precision 设计系统的零依赖 Token 方案，保持全局视觉一致性
 - **新增 screen 遵循 Precision 设计**：黑白灰全线、无彩色强调、无 emoji 装饰、无渐变圆形。详见 `DESIGN.md`
+- **API 前缀统一 `/api/`**：不要在每个接口路径里手写 `/api/`。`auth.ts` 和 `files.ts` 的 `request()` 函数内通过 `API_BASE` 常量统一拼接，新增接口时只写裸路径（如 `'/files'` 而非 `'/api/files'`）
 
 ## 已知坑点
 
