@@ -1,4 +1,4 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -14,12 +14,40 @@ import {useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {authApi} from '../api/auth';
 import {storage} from '../storage/local';
+import {connectToNas, type ConnProgress} from '../network/connector';
 import type {RootStackParamList} from '../navigation';
 import {c} from '../theme/tokens';
 import {shared} from '../theme/shared';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
+};
+
+/**
+ * Server bar 连接状态，在 connector.ConnPhase 基础上增加 UI 特有状态：
+ *   idle / failed  —— 静止态
+ *   mdns / cache / p2p / connected —— 对应 connectToNas 的三层降级
+ */
+type BarPhase = ConnProgress['phase'] | 'idle' | 'failed';
+
+/** 各阶段对应的 Server bar 主文字 */
+const PHASE_LABEL: Record<BarPhase, string> = {
+  idle:      '',
+  mdns:      '搜索局域网设备...',
+  cache:     '验证缓存连接...',
+  p2p:       'WiFi P2P 直连...',
+  connected: '',
+  failed:    '连接失败',
+};
+
+/** 各阶段对应的 Server bar 辅助文字（null 表示使用已有 subtitle） */
+const PHASE_HINT: Record<BarPhase, string> = {
+  idle:      '点击搜索设备',
+  mdns:      '正在搜索局域网设备...',
+  cache:     '尝试验证上次连接地址',
+  p2p:       '无路由器，直连 NAS',
+  connected: '连接正常',
+  failed:    '点击重试',
 };
 
 export function LoginScreen({navigation}: Props) {
@@ -29,25 +57,61 @@ export function LoginScreen({navigation}: Props) {
   const [isRegister, setIsRegister] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState('');
-  const [pingStatus, setPingStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
+  const [barPhase, setBarPhase] = useState<BarPhase>('idle');
+  const [barSubtitle, setBarSubtitle] = useState('');
 
+  const connectingRef = useRef(false);
+
+  // 每次页面获得焦点时读取缓存的服务器地址
   useFocusEffect(
     useCallback(() => {
-      storage.getServerUrl().then(setServerUrl);
+      storage.getServerUrl().then(url => {
+        const val = url || '';
+        setServerUrl(val);
+        if (val) {
+          setBarPhase('idle');
+          setBarSubtitle('');
+        }
+      });
     }, []),
   );
 
-  const handlePing = async () => {
-    if (pingStatus === 'loading') return;
-    setPingStatus('loading');
+  /** 点击 Server bar：触发三层连接策略 */
+  async function handleConnect() {
+    if (connectingRef.current) return;
+    connectingRef.current = true;
+
     try {
-      await authApi.ping();
-      setPingStatus('ok');
-    } catch {
-      setPingStatus('fail');
+      const url = await connectToNas((progress: ConnProgress) => {
+        // 多设备场景：跳 DiscoveryScreen 让用户选择，中断当前连接流程
+        if (progress.multipleDevices) {
+          connectingRef.current = false;
+          navigation.navigate('Discovery');
+          return;
+        }
+        setBarPhase(progress.phase);
+        if (progress.subtitle && progress.phase !== 'connected') {
+          setBarSubtitle(progress.subtitle);
+        }
+      });
+
+      if (url) {
+        // 单设备自动连接成功
+        setServerUrl(url);
+        setBarPhase('connected');
+        setBarSubtitle(url);
+      }
+    } catch (e: any) {
+      const msg = e?.message || '无法连接到 NAS';
+      setBarPhase('failed');
+      setBarSubtitle('');
+      Alert.alert('连接失败', msg);
+    } finally {
+      if (barPhase !== 'connected') {
+        connectingRef.current = false;
+      }
     }
-    setTimeout(() => setPingStatus('idle'), 2000);
-  };
+  }
 
   const handleSubmit = async () => {
     if (!username.trim() || !password.trim()) {
@@ -67,55 +131,62 @@ export function LoginScreen({navigation}: Props) {
     }
   };
 
+  // 根据阶段确定 Server bar 标题（默认显示 serverUrl，连接中显示阶段文字）
+  const labelText = barPhase === 'idle'
+    ? serverUrl || '搜索局域网设备'
+    : barPhase === 'connected'
+      ? serverUrl
+      : PHASE_LABEL[barPhase];
+
+  // 根据阶段确定 Server bar 辅助文字
+  const hintText = barPhase === 'idle'
+    ? serverUrl ? PHASE_HINT.idle : '连接到 NAS 后方可登录'
+    : barPhase === 'connected'
+      ? barSubtitle || PHASE_HINT.connected
+      : barSubtitle || PHASE_HINT[barPhase];
+
+  const isBusy = barPhase !== 'idle' && barPhase !== 'connected' && barPhase !== 'failed';
+
   return (
     <KeyboardAvoidingView
       style={shared.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[shared.centered, styles.card]}>
         {/* Server connection bar */}
-        <View style={styles.serverBar}>
-          <TouchableOpacity
+        <TouchableOpacity
+          style={[
+            styles.serverBar,
+            barPhase === 'connected' && shared.statusOk,
+            barPhase === 'failed' && shared.statusFail,
+          ]}
+          onPress={handleConnect}
+          onLongPress={() => navigation.navigate('DevSettings')}
+          activeOpacity={0.7}>
+          {/* 左侧状态指示器 */}
+          <View
             style={[
-              styles.pingDot,
-              pingStatus === 'ok' && shared.statusOk,
-              pingStatus === 'fail' && shared.statusFail,
-            ]}
-            onPress={handlePing}
-            disabled={pingStatus === 'loading'}
-            activeOpacity={0.7}>
-            {pingStatus === 'loading' ? (
+              styles.statusDot,
+              barPhase === 'connected' && shared.statusOk,
+              barPhase === 'failed' && shared.statusFail,
+            ]}>
+            {isBusy ? (
               <ActivityIndicator size="small" color={c.foreground} />
             ) : (
-              <Text style={styles.pingDotText}>
-                {pingStatus === 'ok' ? '✓' : pingStatus === 'fail' ? '✗' : '⚡'}
+              <Text style={styles.statusDotText}>
+                {barPhase === 'connected' ? '✓' : barPhase === 'failed' ? '✗' : '⚡'}
               </Text>
             )}
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={styles.serverContent}
-            onPress={() => navigation.navigate('Discovery')}
-            onLongPress={() => navigation.navigate('DevSettings')}
-            activeOpacity={0.7}>
+          {/* 中间状态文字 */}
+          <View style={styles.serverContent}>
             <View style={styles.serverTextArea}>
-              <Text style={styles.serverLabel}>
-                {serverUrl ? serverUrl : '搜索局域网设备'}
-              </Text>
-              <Text style={shared.subtitle}>
-                {!serverUrl
-                  ? '连接到 NAS 后方可登录'
-                  : pingStatus === 'idle'
-                    ? '点击左侧按钮测试连接'
-                    : pingStatus === 'ok'
-                      ? '连接正常'
-                      : pingStatus === 'fail'
-                        ? '无法连接 · 点击重试'
-                        : '测试中...'}
-              </Text>
+              <Text style={styles.serverLabel} numberOfLines={1}>{labelText}</Text>
+              <Text style={shared.subtitle} numberOfLines={1}>{hintText}</Text>
             </View>
             <Text style={styles.serverArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
 
         {/* Logo */}
         <View style={styles.logoArea}>
@@ -131,16 +202,12 @@ export function LoginScreen({navigation}: Props) {
           <TouchableOpacity
             style={[styles.tab, !isRegister && styles.tabActive]}
             onPress={() => setIsRegister(false)}>
-            <Text style={[styles.tabText, !isRegister && styles.tabTextActive]}>
-              登录
-            </Text>
+            <Text style={[styles.tabText, !isRegister && styles.tabTextActive]}>登录</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, isRegister && styles.tabActive]}
             onPress={() => setIsRegister(true)}>
-            <Text style={[styles.tabText, isRegister && styles.tabTextActive]}>
-              注册
-            </Text>
+            <Text style={[styles.tabText, isRegister && styles.tabTextActive]}>注册</Text>
           </TouchableOpacity>
         </View>
 
@@ -184,9 +251,7 @@ export function LoginScreen({navigation}: Props) {
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={shared.btnText}>
-              {isRegister ? '创建账号' : '登录'}
-            </Text>
+            <Text style={shared.btnText}>{isRegister ? '创建账号' : '登录'}</Text>
           )}
         </TouchableOpacity>
 
@@ -261,7 +326,7 @@ const styles = StyleSheet.create({
   serverTextArea: {flex: 1},
   serverLabel: {fontSize: 13, fontWeight: '600', color: c.foreground},
   serverArrow: {fontSize: 20, color: c.mutedForeground},
-  pingDot: {
+  statusDot: {
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -271,5 +336,5 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: c.border,
   },
-  pingDotText: {fontSize: 15},
+  statusDotText: {fontSize: 15},
 });

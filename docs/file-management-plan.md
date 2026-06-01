@@ -67,6 +67,12 @@
 
 `auth.ts` 和 `files.ts` 的 `request()` 函数都没有携带 `Authorization: Bearer <token>` 头。当前 auth 接口不需要 token 所以能工作，但文件操作全部需要。
 
+**改造方案**：创建共享 `src/api/client.ts`，统一在 `request()` 中：
+- 从 `storage.getToken()` 获取 token
+- 注入 `Authorization: Bearer <token>` 头
+- multipart/form-data 时不设 `Content-Type`（让 RN 自动添加 boundary）
+- 401 响应时抛出 `UNAUTHORIZED` 错误，由调用方决定跳登录
+
 ### 2.3 类型定义不匹配（P0）
 
 **当前 FileItem（`src/types/index.ts`）：**
@@ -74,10 +80,24 @@
 { name, size, modifiedAt, isDir: boolean }
 ```
 
-**后端返回：**
+**后端实际返回（`system/file.go:20` FileInfo struct）：**
 ```ts
-{ name, size, type: "file" | "directory", modified, permission }
+// 后端 Go struct → JSON：
+// Name string `json:"name"`       // 文件名或目录名
+// Size int64  `json:"size"`       // 字节，目录为 0
+// Type string `json:"type"`       // "file" 或 "directory"
+// Modified time.Time `json:"modified"`  // ISO 时间
+// Permission string `json:"permission"` // owner 权限位，如 "rwx"、"rw-"
+{
+  name: "photo.jpg",
+  size: 102400,
+  type: "file",           // ← 不是 isDir: boolean
+  modified: "2026-05-26T10:24:00Z",  // ← 不是 modifiedAt
+  permission: "rw-"       // ← 完全缺失
+}
 ```
+
+**AuthResponse 也不完整** — 当前只有 `{token}`，后端 `LoginResponse` 有 `{token, role}`，`RegisterResponse` 有 `{token, uid, role}`。
 
 ### 2.4 files.ts 全 Mock（P0）
 
@@ -214,34 +234,47 @@ export const filesApi = {
 
 ---
 
-## 四、WiFi P2P 开发（独立分析）
+## 四、WiFi P2P 开发（已完成 ✅，2026-06-01）
 
 ### 4.1 后端现状
 
-- NAS 端：`start.sh` 中 `wpa_cli -i wlan0 p2p_group_add` 预建 GO 组
+- NAS 端：**尚未实现**。`start.sh` 需添加 `wpa_cli -i wlan0 p2p_group_add` 预建 GO 组，Dockerfile 需安装 `wpasupplicant` + `iw` + `dnsmasq`。详见 `wiki/WiFi_P2P_NFC_APP_开发方案.md` 的 NAS 侧章节
 - 连接后 NAS IP 固定 `192.168.49.1:8080`
-- 硬件：Intel AX210 (M.2 A+E)，支持 WiFi 6E + WiFi Direct P2P
-- 后端尚未验证端到端 P2P 连通性（main-claude.md 列为高优待办）
+- 硬件：Realtek RTL8822CE（开发机）/ Intel AX210（正式），均支持 WiFi Direct
 
-### 4.2 APP 端需要做的事
+### 4.2 APP 端完成内容
 
-1. **Android 原生模块**：`WifiP2pModule.kt` — 使用 `WifiP2pManager` 发现并连接 NAS 的 P2P GO
-2. **权限**：Android 12+ 需要 `NEARBY_WIFI_DEVICES`
-3. **TS 封装**：`src/native/WifiP2pModule.ts`
-4. **连接策略**：更新 `src/network/connector.ts`，在 mDNS 失败后降级 P2P
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `AndroidManifest.xml` | 修改 | +`NEARBY_WIFI_DEVICES`（13+）、+`ACCESS_FINE_LOCATION`（6-12） |
+| `WifiP2pModule.kt` | 新增 | 原生模块 230 行：权限检查 → 清理残留 Group → discoverPeers → connect → 获取 GO IP → 30s 超时 |
+| `WifiP2pPackage.kt` | 新增 | ReactPackage 注册 |
+| `MainApplication.kt` | 修改 | +`add(WifiP2pPackage())` |
+| `src/native/WifiP2pModule.ts` | 新增 | JS 封装：`connect()` → `{ip, port}`、`disconnect()` |
+| `src/network/connector.ts` | 重写 | 三层降级策略（mDNS → 缓存IP ping → P2P） |
+| `src/screens/NfcScanScreen.tsx` | 新增 | NFC 触发入口页：连接 → 校验 → 跳登录 |
+| `src/navigation/index.tsx` | 修改 | +`NfcScan: undefined` 路由 |
 
-### 4.3 待 NAS 端先验证
+### 4.3 实现中修复的问题
 
-P2P 开发依赖 NAS 端先验证 `wpa_cli p2p_group_add` 可用性。建议等待同事完成验证后再启动 APP 端 P2P 开发。
+实现过程中对同事方案做了 3 处增强：
+
+1. **`connect()` 失败直接 reject**：同事方案 `connectToDevice()` 的 `onFailure` 仅打 log，用户等到 30s 超时。现在直接 `resolveError`，2-3s 内得到错误信息
+2. **连接前清理残留 Group**：`connect()` 开头增加 `requestGroupInfo()` + `removeGroup()`，防止上次未正常断开阻塞新连接
+3. **新增 `disconnect()` 方法**：JS 层可主动断连 + 移除 Group
+
+### 4.4 待 NAS 端就绪后联调
+
+P2P 模块代码已完成并编译通过，但端到端测试依赖 NAS 端先配置 `wpa_cli p2p_group_add`。
 
 ---
 
 ## 五、实施顺序
 
-| 优先级 | 任务 | 依赖 |
-|--------|------|------|
-| P0 | 类型 + HTTP 客户端 + API 路径对齐 | 无 |
-| P0 | filesApi 对接真实接口（list + mkdir + move + delete） | Step P0 |
-| P1 | 文件下载/上传功能 | Step P0 |
-| P1 | HomeScreen 目录导航交互 | Step P0 |
-| P2 | WiFi P2P 原生模块 | NAS 端 P2P 验证 |
+| 优先级 | 任务 | 状态 | 依赖 |
+|--------|------|------|------|
+| P0 | 类型 + HTTP 客户端 + API 路径对齐 | ⬜ 待开发 | 无 |
+| P0 | filesApi 对接真实接口（list + mkdir + move + delete） | ⬜ 待开发 | Step P0 |
+| P1 | 文件下载/上传功能 | ⬜ 待开发 | Step P0 |
+| P1 | HomeScreen 目录导航交互 | ⬜ 待开发 | Step P0 |
+| P2 | WiFi P2P 原生模块 | ✅ 已完成 (2026-06-01) | NAS 端 P2P 验证（待同事） |
