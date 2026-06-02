@@ -1,42 +1,61 @@
-import type { FileItem } from '../types';
-import { storage } from '../storage/local';
-
-const API_BASE = '/api';
-
-async function request<T>(path: string, options: RequestInit = {}, timeoutMs = 8000): Promise<T> {
-    const baseUrl = await storage.getServerUrl();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const res = await fetch(`${baseUrl}${API_BASE}${path}`, {
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            ...options,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-    } finally {
-        clearTimeout(timer);
-    }
-}
-
-// TODO: replace mock with real API once backend is ready
-const MOCK_FILES: FileItem[] = [
-    { name: '文档', size: 0, modifiedAt: '2026-05-15T10:30:00Z', isDir: true },
-    { name: '照片', size: 0, modifiedAt: '2026-05-14T08:00:00Z', isDir: true },
-    { name: 'README.md', size: 2048, modifiedAt: '2026-05-16T14:22:00Z', isDir: false },
-    { name: 'backup.tar.gz', size: 1048576, modifiedAt: '2026-05-10T09:15:00Z', isDir: false },
-];
+import {request} from './client';
+import type {FileItem, ListFilesResponse, OkPathResponse, OkResponse} from '../types';
 
 export const filesApi = {
-    list: async (): Promise<FileItem[]> => {
-        // return request<FileItem[]>('/files');
-        return new Promise(resolve => setTimeout(() => resolve(MOCK_FILES), 600));
-    },
+  /** 列出目录。dirPath 为空时后端自动映射到用户根目录 */
+  list: (dirPath?: string) =>
+    request<ListFilesResponse>(
+      `/files${dirPath ? `?path=${encodeURIComponent(dirPath)}` : ''}`,
+    ),
 
-    upload: (name: string, _body: unknown) =>
-        request<FileItem>(`/files/${encodeURIComponent(name)}`, {
-            method: 'PUT',
-            body: JSON.stringify(_body),
-        }),
+  /** 新建目录 */
+  mkdir: (path: string) =>
+    request<OkPathResponse>('/files/mkdir', {
+      method: 'POST',
+      body: JSON.stringify({path}),
+    }),
+
+  /** 移动 / 重命名 */
+  move: (from: string, to: string) =>
+    request<OkResponse>('/files/move', {
+      method: 'POST',
+      body: JSON.stringify({from, to}),
+    }),
+
+  /** 删除文件或目录（递归） */
+  remove: (path: string) =>
+    request<OkResponse>(`/files?path=${encodeURIComponent(path)}`, {
+      method: 'DELETE',
+    }),
+
+  /**
+   * 上传文件。
+   *
+   * @param dirPath  目标目录
+   * @param file     文件对象，来自 react-native-document-picker
+   */
+  upload: async (
+    dirPath: string,
+    file: {uri: string; name: string; type: string},
+  ): Promise<OkPathResponse> => {
+    const form = new FormData();
+    form.append('path', dirPath);
+    form.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as any);
+    return request<OkPathResponse>('/files/upload', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  /** 获取文件下载 URL（GET /api/files/download?path=...），浏览器 / WebView 可直接访问 */
+  getDownloadUrl: async (filePath: string): Promise<string> => {
+    const {storage} = await import('../storage/local');
+    const baseUrl = await storage.getServerUrl();
+    const token = await storage.getToken();
+    return `${baseUrl}/api/files/download?path=${encodeURIComponent(filePath)}&token=${encodeURIComponent(token || '')}`;
+  },
 };

@@ -62,7 +62,7 @@ export function LoginScreen({navigation}: Props) {
 
   const connectingRef = useRef(false);
 
-  // 每次页面获得焦点时读取缓存的服务器地址
+  // 每次页面获得焦点时：读取缓存地址 + 尝试自动登录
   useFocusEffect(
     useCallback(() => {
       storage.getServerUrl().then(url => {
@@ -73,7 +73,17 @@ export function LoginScreen({navigation}: Props) {
           setBarSubtitle('');
         }
       });
-    }, []),
+      // 已有 token → 尝试验证，有效则跳过登录直接进主页
+      storage.getToken().then(async token => {
+        if (!token) return;
+        try {
+          await authApi.validateToken();
+          navigation.replace('Home');
+        } catch {
+          // token 过期或无效，留在登录页让用户重新登录
+        }
+      });
+    }, [navigation]),
   );
 
   /** 点击 Server bar：触发三层连接策略 */

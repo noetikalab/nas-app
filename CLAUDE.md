@@ -39,7 +39,7 @@ pnpm test -- --testPathPattern=<file>  # 运行单个测试文件
 |------|------|
 | `src/screens/` | 页面：LoginScreen、HomeScreen、DevSettingsScreen（长按 ping 按钮进入）、NfcScanScreen（NFC 碰一碰触发入口） |
 | `src/navigation/` | React Navigation 路由配置，当前 5 个 screen（Discovery/Login/Home/DevSettings/NfcScan） |
-| `src/api/` | HTTP 请求层，对接 authd 后端。auth.ts（认证）、files.ts（文件操作，当前 Mock）、device.ts（/device-info 校验） |
+| `src/api/` | HTTP 请求层。`client.ts` 共享请求函数（自动 JWT 注入、multipart 兼容、401 清登录态、统一 `/api/` 前缀）。auth.ts（认证）、files.ts（文件操作，已对接真实 API）、device.ts（设备校验，纯 fetch） |
 | `src/native/` | JSB 原生模块 JS 封装。MdnsModule.ts（mDNS 发现）、WifiP2pModule.ts（P2P 直连 connect/disconnect） |
 | `src/network/` | 连接策略：mDNS 发现 → 缓存 IP ping → WiFi P2P 直连（三层降级） |
 | `src/storage/` | AsyncStorage 封装：server_url、JWT token、username 持久化 |
@@ -52,10 +52,11 @@ pnpm test -- --testPathPattern=<file>  # 运行单个测试文件
 `connectToNas(onProgress?)` 实现三层降级，通过可选回调 `onProgress({phase, subtitle, multipleDevices})` 向 UI 层实时报告进度：
 
 ```
-mDNS 局域网发现 ──→ 1台自动连接（先 /api/ping 验证可达）
+mDNS 局域网发现 ──→ 1台自动连接（/api/ping 6s + 重试一次验证可达）
+   │               验证失败：保存 URL 不放行到缓存层（避免旧地址干扰）
    │               多台 → 回调 multipleDevices，UI 跳 DiscoveryScreen 让用户选
    ↓ 0台
-缓存 IP ping 验证（2s 超时）──→ 可达则返回 URL
+缓存 IP ping 验证（4s 超时）──→ 可达则返回 URL
    ↓ 不可达
 WiFi P2P 直连 ──→ 连上后 /api/ping 验证 NAS 服务可达
    ↓ 失败
@@ -89,6 +90,21 @@ P2P 设备名规范：NAS 端 `wpa_supplicant.conf` 需设置 `device_name=NAS-<
 3. 持久化 serverUrl → 跳转 `LoginScreen` 手动输入密码
 
 增强版后续加入 NFC 读取 device_id 比对和 nfc_token 免密登录。
+
+### 文件管理（`src/screens/HomeScreen.tsx`）
+
+登录成功后进入的主页面，功能完整：
+
+- **目录导航**：`prevPaths` 栈记录路径历史；点击目录 `▸` 进入子目录，header `‹` 按钮返回上级；Android 返回键被 `BackHandler` 拦截——子目录中回退，根目录时弹出确认弹窗
+- **文件列表**：目录在前、文件在后，按名称排序；图标 `▸`/`□`（Precision 设计，无 emoji）；pull-to-refresh 重新加载
+- **操作**：长按弹出菜单（重命名 → `POST /api/files/move`；删除 → `DELETE /api/files?path=`，目录递归删除）；点击文件弹出详情 Modal（名称、大小、日期、权限、完整路径）
+- **新建文件夹**：header `+` → Modal 输入名称 → `POST /api/files/mkdir`
+- **文件上传**：header `↑` → 系统文件选择器（`@react-native-documents/picker`）→ multipart `POST /api/files/upload` → 刷新列表
+- **共享文件**：header 下方 Tab 栏（"/我的文件" / "/共享文件"），路径 `/data/shared`。普通用户只读——共享 Tab 下隐藏 `[+]` 和 `[↑]` 按钮，上传/创建失败时弹出"共享目录只读，请联系管理员"而非技术错误。两个 Tab 各自维护独立的导航栈，切换不被干扰
+- **自动登录**：`LoginScreen.useFocusEffect` 中检查已存 token → `GET /api/validate-token` → 有效则 `navigation.replace('Home')` 跳过登录页
+- **错误处理**：401 → 清 auth 跳 LoginScreen；其他错误 → 显示错误文字 + 重试按钮
+
+> 依赖说明：文件选择器必须用 `@react-native-documents/picker`（12.0.1），不能用 `react-native-document-picker`。后者依赖的 `GuardedResultAsyncTask` 在 RN 0.74+ 已移除，编译直接失败。
 
 ## 后端接口（authd，默认 :8080，所有接口统一 `/api/` 前缀）
 
@@ -127,10 +143,6 @@ interface FileInfo {
 }
 ```
 
-### APP 当前类型 Gap
-
-当前 `src/types/index.ts` 的 `FileItem` 使用 `isDir: boolean` + `modifiedAt`，与后端不兼容。`AuthResponse` 缺少 `role` 字段。`files.ts` 全 Mock 数据。待后续统一改造（详见 `docs/file-management-plan.md`）。
-
 ## 关键约束
 
 - `phone_id`：首次启动生成的 UUID，存 AsyncStorage，永不变，用于 NFC 绑定身份
@@ -143,7 +155,9 @@ interface FileInfo {
 - MVP 阶段不做防重放和 HTTPS，正式版再加
 - **UI 色值禁止硬编码**：所有颜色从 `src/theme/tokens.ts` 的 `c` 对象引用，共用样式从 `src/theme/shared.ts` 的 `shared` 引用。这是 Precision 设计系统的零依赖 Token 方案，保持全局视觉一致性
 - **新增 screen 遵循 Precision 设计**：黑白灰全线、无彩色强调、无 emoji 装饰、无渐变圆形。详见 `DESIGN.md`
-- **API 前缀统一 `/api/`**：`auth.ts` 和 `files.ts` 通过 `API_BASE` 常量统一拼接；后续改造为共享 `client.ts` 后，由 `client.ts` 统一拼接
+- **API 前缀统一 `/api/`**：由 `src/api/client.ts` 统一拼接，不再在各 api 模块中手写前缀
+- **自动登录**：token 存 AsyncStorage，APP 启动时 `validateToken` 验证有效性，有效则跳过登录页直接进 HomeScreen。Token 被清除时（手动退出 / 401）回落到登录页
+- **Android 返回键**：HomeScreen 用 `BackHandler.addEventListener` 接管，子目录中回退上级，根目录时 Alert 确认退出
 
 ## 已知坑点
 
@@ -163,6 +177,9 @@ interface FileInfo {
 - **P2P `PEERS_CHANGED` 回调重复**：Android 一次设备列表变化可能触发多次 `requestPeers` 回调，导致重复 `connect()`。解决：`connectionAttempted` 标志防重
 - **P2P 扫到非 NAS 设备**：`discoverPeers` 返回所有 Wi-Fi Direct 设备（打印机等）。解决：按 `deviceName.lowercase().contains("nas")` 过滤，NAS 端在 `wpa_supplicant.conf` 中设 `device_name=NAS-<device_id>`
 - **P2P 开发机限制**：Ubuntu Desktop + NetworkManager 接管 WiFi 后无法创建 P2P GO，需 Ubuntu Server（无 NetworkManager）。日常开发以 mDNS 为主，P2P 等 NAS 硬件到位后验证
+- **USB 网络共享 mDNS 通但 HTTP 不通**：电脑通过 USB 共享网络给手机时，mDNS UDP 多播可跨越 USB 到达手机（能发现 NAS），但 TCP 路由隔离——手机路由表不知 `10.20.x.x` 网段怎么走，HTTP 请求发不出。解决：手机直接连 WiFi 与 NAS 同局域网
+- **`filesApi.list()` 发 `path=/` 返回 403**：普通用户路径校验 `ValidatePath` 要求 path 在 `/data/{username}/` 前缀下，发 `/` 不满足。正确做法：空目录时不传 `?path=` 参数，后端自动映射到用户根目录
+- **`react-native-document-picker` 编译失败**：9.x 全系列依赖 RN bridge 的 `GuardedResultAsyncTask`，此类在 RN 0.74+ 已移除。解决：替换为 `@react-native-documents/picker`（12.0.1），API 兼容，`pick()` 签名几乎一致
 
 ## 入口文件
 

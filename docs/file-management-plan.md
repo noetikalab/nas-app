@@ -273,8 +273,18 @@ P2P 模块代码已完成并编译通过，但端到端测试依赖 NAS 端先�
 
 | 优先级 | 任务 | 状态 | 依赖 |
 |--------|------|------|------|
-| P0 | 类型 + HTTP 客户端 + API 路径对齐 | ⬜ 待开发 | 无 |
-| P0 | filesApi 对接真实接口（list + mkdir + move + delete） | ⬜ 待开发 | Step P0 |
-| P1 | 文件下载/上传功能 | ⬜ 待开发 | Step P0 |
-| P1 | HomeScreen 目录导航交互 | ⬜ 待开发 | Step P0 |
+| P0 | 类型 + HTTP 客户端 + API 路径对齐 | ✅ 已完成 (2026-06-02) | 无 |
+| P0 | filesApi 对接真实接口（list + mkdir + move + delete） | ✅ 已完成 (2026-06-02) | Step P0 |
+| P1 | 文件上传功能 | ✅ 已完成 (2026-06-02) | Step P0 |
+| P1 | HomeScreen 目录导航 + 文件操作 UI | ✅ 已完成 (2026-06-02) | Step P0 |
 | P2 | WiFi P2P 原生模块 | ✅ 已完成 (2026-06-01) | NAS 端 P2P 验证（待同事） |
+| P1 | 共享文件 Tab | ✅ 已完成 (2026-06-02) | 后端共享目录就绪 |
+
+### 实施说明
+
+- **HTTP 客户端**：创建 `src/api/client.ts`，统一 `request<T>()` 封装 fetch，自动注入 JWT `Authorization` 头，multipart 时不设 `Content-Type`，401 自动清登录态
+- **类型对齐**：`src/types/index.ts` 重写——`FileItem` 改用 `type/modified/permission`，`AuthResponse` 加入 `role`，新增 `ListFilesResponse`、`OkPathResponse` 等
+- **文件 API**：`src/api/files.ts` 替换 Mock，对接后端全部接口（list / mkdir / move / remove / upload / getDownloadUrl）
+- **依赖变更**：`react-native-document-picker` 与 RN 0.85 不兼容（依赖已移除的 `GuardedResultAsyncTask`），替换为 `@react-native-documents/picker` 12.0.1
+- **HomeScreen 改造**：目录导航（`prevPaths` 栈 + BackHandler 拦截）、长按操作（重命名/删除）、文件预览 Modal、新建文件夹 Modal、文件上传、自动登录、退出确认弹窗
+- **共享文件**：HomeScreen 新增 Tab 栏（"我的文件"/"共享文件"），路径 `/data/shared`。普通用户只读（隐藏新建/上传按钮），两个 Tab 独立导航栈。API 复用已有接口，无新增依赖

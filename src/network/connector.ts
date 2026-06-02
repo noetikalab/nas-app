@@ -43,40 +43,31 @@ export async function connectToNas(
       const device = devices[0];
       onProgress?.({phase: 'mdns', subtitle: `发现 ${device.name}，校验中...`});
       const url = `http://${device.ip}:${device.port}`;
-      // 校验设备实际可达后再返回，避免标"connected"后登录失败才发现不可达
-      try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 3000);
-        const ping = await fetch(`${url}/api/ping`, {signal: ctrl.signal});
-        clearTimeout(t);
-        if (ping.ok) {
-          await storage.saveServerUrl(url);
-          onProgress?.({phase: 'connected', subtitle: url});
-          return url;
-        }
-      } catch {
-        // 校验失败，继续降级
+      // 先保存 URL，避免验证失败后缓存层用旧地址
+      await storage.saveServerUrl(url);
+      // USB 共享网络延迟高，6s 超时 + 失败后重试一次
+      if (await tryPing(url, 6000)) {
+        onProgress?.({phase: 'connected', subtitle: url});
+        return url;
       }
+      // 重试一次（网络抖动场景）
+      if (await tryPing(url, 6000)) {
+        onProgress?.({phase: 'connected', subtitle: url});
+        return url;
+      }
+      // 两次都失败，放行到缓存层（URL 已保存，缓存层会直接命中）
     }
   } catch {
     // mDNS 失败不报错，静默降级
   }
 
-  // 优先级 2：缓存 IP 快速 ping 验证
+  // 优先级 2：缓存 IP 快速 ping 验证（mDNS 层未发现设备时执行）
   const cached = await storage.getServerUrl();
   if (cached) {
     onProgress?.({phase: 'cache', subtitle: '验证缓存连接...'});
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(`${cached}/api/ping`, {signal: controller.signal});
-      clearTimeout(timer);
-      if (res.ok) {
-        onProgress?.({phase: 'connected', subtitle: cached});
-        return cached;
-      }
-    } catch {
-      // 缓存不可达，继续降级
+    if (await tryPing(cached, 4000)) {
+      onProgress?.({phase: 'connected', subtitle: cached});
+      return cached;
     }
   }
 
@@ -99,6 +90,19 @@ export async function connectToNas(
   } catch (e) {
     // 透传原生模块的具体错误，不掩盖原因
     throw e;
+  }
+}
+
+/** 对指定 URL 做 /api/ping 可达性探测，timeoutMs 毫秒超时，返回布尔值 */
+async function tryPing(url: string, timeoutMs: number): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    const res = await fetch(`${url}/api/ping`, {signal: ctrl.signal});
+    clearTimeout(t);
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 

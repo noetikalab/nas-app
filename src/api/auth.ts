@@ -1,37 +1,25 @@
-import type { AuthResponse, LoginRequest } from '../types';
-import { storage } from '../storage/local';
-
-const API_BASE = '/api';
-
-async function request<T>(path: string, options: RequestInit, timeoutMs = 8000): Promise<T> {
-    const baseUrl = await storage.getServerUrl();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const res = await fetch(`${baseUrl}${API_BASE}${path}`, {
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            ...options,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-    } finally {
-        clearTimeout(timer);
-    }
-}
+import type {AuthResponse, LoginRequest, RegisterResponse} from '../types';
+import {request} from './client';
 
 export const authApi = {
-    ping: () => request<{ ok: boolean }>('/ping', { method: 'GET' }),
+  /** 连通性测试 */
+  ping: () => request<{ok: boolean}>('/ping', {method: 'GET'}),
 
-    login: (data: LoginRequest) =>
-        request<AuthResponse>('/login', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        }),
+  /** 登录，返回 JWT token + 角色 */
+  login: (data: LoginRequest) =>
+    request<AuthResponse>('/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
-    register: (data: LoginRequest) =>
-        request<AuthResponse>('/register', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        }),
+  /** 注册，返回 JWT token + UID + 角色 */
+  register: (data: LoginRequest) =>
+    request<RegisterResponse>('/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** 验证 JWT 是否有效（自动注入 Authorization 头） */
+  validateToken: () =>
+    request<{valid: boolean; username: string}>('/validate-token'),
 };

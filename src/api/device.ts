@@ -1,12 +1,10 @@
-import axios from 'axios';
+import type {DeviceInfo} from '../types';
+import {request} from './client';
 
-export interface DeviceInfo {
-  device_id: string;
-  hostname: string;
-  version: string;
-}
-
-export async function getDeviceInfo(baseUrl: string): Promise<DeviceInfo> {
-  const res = await axios.get<DeviceInfo>(`${baseUrl}/api/device-info`, {timeout: 5000});
-  return res.data;
+/** 获取 NAS 设备信息（公开接口，无需 JWT） */
+export function getDeviceInfo(baseUrl: string): Promise<DeviceInfo> {
+  return fetch(`${baseUrl}/api/device-info`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
 }
