@@ -12,6 +12,9 @@
     <!-- WiFi P2P：Android 6-12 需要定位权限，API 32 之后由 NEARBY_WIFI_DEVICES 替代 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
                      android:maxSdkVersion="32" />
+    <!-- NFC 碰一碰登录 -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
 
     <application
       android:name=".MainApplication"
@@ -33,6 +36,21 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- NFC intent-filter：手机碰标签自动唤起 APP 或前景调度读取 -->
+        <intent-filter>
+            <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent-filter>
+        <intent-filter>
+            <action android:name="android.nfc.action.TAG_DISCOVERED" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent-filter>
+        <intent-filter>
+            <action android:name="android.nfc.action.TECH_DISCOVERED" />
+        </intent-filter>
+        <meta-data
+            android:name="android.nfc.action.TECH_DISCOVERED"
+            android:resource="@xml/nfc_tech_filter" />
       </activity>
     </application>
 </manifest>

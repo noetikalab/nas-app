@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "adb reverse tcp:8081 tcp:9173 && react-native start --port 9173",
+    "dev:a": "react-native run-android && adb reverse tcp:8081 tcp:9173 && react-native start --port 9173",
+    "dev:i": "react-native run-ios && react-native start --port 9173",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",

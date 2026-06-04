@@ -22,4 +22,18 @@ export const authApi = {
   /** 验证 JWT 是否有效（自动注入 Authorization 头） */
   validateToken: () =>
     request<{valid: boolean; username: string}>('/validate-token'),
+
+  /** NFC 碰一碰登录（首次碰或未绑定时调用） */
+  nfcLogin: (deviceId: string, phoneId: string) =>
+    request<{token: string; username: string; role: string} | {need_bind: true}>('/nfc-login', {
+      method: 'POST',
+      body: JSON.stringify({device_id: deviceId, phone_id: phoneId}),
+    }),
+
+  /** NFC 碰一碰首次绑定（绑定 phone_id 到用户） */
+  nfcBind: (deviceId: string, phoneId: string, username: string, password: string) =>
+    request<{token: string; username: string; role: string}>('/nfc-bind', {
+      method: 'POST',
+      body: JSON.stringify({device_id: deviceId, phone_id: phoneId, username, password}),
+    }),
 };
