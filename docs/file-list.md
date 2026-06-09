@@ -44,3 +44,6 @@ files[] → refresh → files[]
 - 文件：`📄` + 名称 + 格式化大小 + 日期
 
 工具函数 `formatSize` / `formatDate` 在 HomeScreen 文件内定义。
+
+## 相关文章
+- [[file-management-plan]] — 本 UI 的设计方案

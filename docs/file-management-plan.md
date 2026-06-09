@@ -288,3 +288,8 @@ P2P 模块代码已完成并编译通过，但端到端测试依赖 NAS 端先�
 - **依赖变更**：`react-native-document-picker` 与 RN 0.85 不兼容（依赖已移除的 `GuardedResultAsyncTask`），替换为 `@react-native-documents/picker` 12.0.1
 - **HomeScreen 改造**：目录导航（`prevPaths` 栈 + BackHandler 拦截）、长按操作（重命名/删除）、文件预览 Modal、新建文件夹 Modal、文件上传、自动登录、退出确认弹窗
 - **共享文件**：HomeScreen 新增 Tab 栏（"我的文件"/"共享文件"），路径 `/data/shared`。普通用户只读（隐藏新建/上传按钮），两个 Tab 独立导航栈。API 复用已有接口，无新增依赖
+
+## 相关文章
+- [[../../wiki/APP开发记录与踩坑指南_opencode-agent]] — 本方案的实施回溯
+- [[../../wiki/API契约]] — 后端接口契约（待创建）
+- [[file-list]] — 同一功能的 UI 设计说明

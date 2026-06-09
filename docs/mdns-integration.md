@@ -138,3 +138,8 @@ WiFi P2P 直连 → WifiP2pModule.connect()
 ```kotlin
 if (service.serviceType.removeSuffix(".") != SERVICE_TYPE) return
 ```
+
+## 相关文章
+- [[../../wiki/WiFi_P2P_NFC_APP_开发方案]] — mDNS 在连接策略中的位置
+- [[../../wiki/APP开发记录与踩坑指南_opencode-agent]] — mDNS 开发踩坑记录
+- [[setup]] — 开发环境网络配置

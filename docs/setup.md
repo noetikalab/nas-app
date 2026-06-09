@@ -192,3 +192,7 @@ pnpm android
 - [NAS 整体方案（飞书）](https://my.feishu.cn/docx/EhQodDF20oHLMixoRaWcrejinIf)
 - [手机 APP 连接 NAS 方案（飞书）](https://my.feishu.cn/docx/ECfhdOcRUoa4XHxqCiOckoS7nOb)
 - 后端（authd）：`../ldap-demo/`
+
+## 相关文章
+- [[../../wiki/index]] — 全局知识目录
+- [[mdns-integration]] — 网络配置与 mDNS 调试
